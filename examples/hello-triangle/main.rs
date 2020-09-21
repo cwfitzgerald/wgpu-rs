@@ -75,6 +75,8 @@ async fn run(event_loop: EventLoop<()>, window: Window, swapchain_format: wgpu::
 
     let mut swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
+    let mut swapchain_frame_delay_slot = None;
+
     event_loop.run(move |event, _, control_flow| {
         // Have the closure take ownership of the resources.
         // `event_loop.run` never returns, therefore we must do this to ensure
@@ -122,6 +124,11 @@ async fn run(event_loop: EventLoop<()>, window: Window, swapchain_format: wgpu::
                 }
 
                 queue.submit(Some(encoder.finish()));
+
+                // wait until next loop to present frame
+                let last_frame = swapchain_frame_delay_slot.replace(frame);
+
+                drop(last_frame) // force presentation of last frame
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,

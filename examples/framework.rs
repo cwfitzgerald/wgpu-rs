@@ -108,7 +108,7 @@ async fn setup<E: Example>(title: &str) -> Setup {
 
     log::info!("Initializing the surface...");
 
-    let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+    let instance = wgpu::Instance::new(wgpu::BackendBit::VULKAN);
     let (size, surface) = unsafe {
         let size = window.inner_size();
         let surface = instance.create_surface(&window);

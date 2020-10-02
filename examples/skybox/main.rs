@@ -140,7 +140,7 @@ impl framework::Example for Skybox {
         let device_features = device.features();
 
         let (skybox_format, single_file) =
-            if device_features.contains(wgt::Features::TEXTURE_COMPRESSION_BC) {
+            if device_features.contains(wgt::Features::TEXTURE_COMPRESSION_BC) && false {
                 (wgpu::TextureFormat::Bc1RgbaUnormSrgb, true)
             } else {
                 (wgpu::TextureFormat::Rgba8UnormSrgb, false)
@@ -154,7 +154,7 @@ impl framework::Example for Skybox {
             },
             mip_level_count: 1,
             sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
+            dimension: wgpu::TextureDimension::D3,
             format: skybox_format,
             usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
             label: None,

@@ -239,8 +239,10 @@ fn start<E: Example>(
     log::info!("Initializing the example...");
     let mut example = E::init(&sc_desc, &device, &queue);
 
-    #[cfg(not(target_arch = "wasm32"))]
-    let mut last_update_inst = Instant::now();
+    let mut timestamp_last_second = Instant::now();
+    let mut timestamp_last_frame = Instant::now();
+
+    let mut frame_times = histogram::Histogram::new();
 
     log::info!("Entering render loop...");
     event_loop.run(move |event, _, control_flow| {
@@ -248,23 +250,38 @@ fn start<E: Example>(
         *control_flow = if cfg!(feature = "metal-auto-capture") {
             ControlFlow::Exit
         } else {
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(10))
-            }
-            #[cfg(target_arch = "wasm32")]
-            {
-                ControlFlow::Poll
-            }
+            ControlFlow::Poll
         };
         match event {
             event::Event::MainEventsCleared => {
+                let now = Instant::now();
+
+                let delta_time = now - timestamp_last_frame;
+                frame_times.increment(delta_time.as_micros() as u64).unwrap();
+
+                let elapsed_since_second = now - timestamp_last_second;
+                if elapsed_since_second > Duration::from_secs(1) {
+                    let count = frame_times.entries();
+                    println!(
+                        "{:0>5} frames over {:0>5.2}s. Min: {:0>5.2}ms; Average: {:0>5.2}ms; 95%: {:0>5.2}ms; 99%: {:0>5.2}ms; Max: {:0>5.2}ms; StdDev: {:0>5.2}ms",
+                        count,
+                        elapsed_since_second.as_secs_f32(),
+                        frame_times.minimum().unwrap() as f32 / 1_000.0,
+                        frame_times.mean().unwrap() as f32 / 1_000.0,
+                        frame_times.percentile(95.0).unwrap() as f32 / 1_000.0,
+                        frame_times.percentile(99.0).unwrap() as f32 / 1_000.0,
+                        frame_times.maximum().unwrap() as f32 / 1_000.0,
+                        frame_times.stddev().unwrap() as f32 / 1_000.0,
+                    );
+                    timestamp_last_second = now;
+                    frame_times.clear();
+                }
+
+                timestamp_last_frame = now;
+
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    if last_update_inst.elapsed() > Duration::from_millis(20) {
-                        window.request_redraw();
-                        last_update_inst = Instant::now();
-                    }
+                    window.request_redraw();
 
                     pool.run_until_stalled();
                 }

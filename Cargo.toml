@@ -22,6 +22,9 @@ replay = ["serde", "wgc/replay"]
 # Make Vulkan backend available on platforms where it is by default not, e.g. macOS
 vulkan-portability = ["wgc/gfx-backend-vulkan"]
 
+[profile.release]
+debug = true
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.wgc]
 package = "wgpu-core"
 git = "https://github.com/gfx-rs/wgpu"
@@ -44,6 +47,8 @@ typed-arena = "2.0.1"
 serde = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
+histogram = "0.6"
+rayon = "1"
 cgmath = "0.17"
 log = "0.4"
 png = "0.16"
@@ -64,8 +69,8 @@ path="examples/hello-compute/main.rs"
 test = true
 
 [patch."https://github.com/gfx-rs/wgpu"]
-#wgpu-types = { version = "0.6", path = "../wgpu/wgpu-types" }
-#wgpu-core = { version = "0.6", path = "../wgpu/wgpu-core" }
+wgpu-types = { version = "0.6", path = "../wgpu/wgpu-types" }
+wgpu-core = { version = "0.6", path = "../wgpu/wgpu-core" }
 
 [patch."https://github.com/gfx-rs/subscriber"]
 #wgpu-subscriber = { version = "0.1", path = "../subscriber" }
@@ -77,16 +82,16 @@ test = true
 #gpu-descriptor = { path = "../gpu-descriptor/gpu-descriptor" }
 
 [patch."https://github.com/zakarumych/gpu-alloc"]
-#gpu-alloc = { path = "../gpu-alloc/gpu-alloc" }
+gpu-alloc = { path = "../gpu-alloc/gpu-alloc" }
 
 [patch."https://github.com/gfx-rs/gfx"]
-#gfx-hal = { path = "../gfx/src/hal" }
-#gfx-backend-empty = { path = "../gfx/src/backend/empty" }
-#gfx-backend-vulkan = { path = "../gfx/src/backend/vulkan" }
-#gfx-backend-gl = { path = "../gfx/src/backend/gl" }
-#gfx-backend-dx12 = { path = "../gfx/src/backend/dx12" }
-#gfx-backend-dx11 = { path = "../gfx/src/backend/dx11" }
-#gfx-backend-metal = { path = "../gfx/src/backend/metal" }
+gfx-hal = { path = "../gfx/src/hal" }
+gfx-backend-empty = { path = "../gfx/src/backend/empty" }
+gfx-backend-vulkan = { path = "../gfx/src/backend/vulkan" }
+gfx-backend-gl = { path = "../gfx/src/backend/gl" }
+gfx-backend-dx12 = { path = "../gfx/src/backend/dx12" }
+gfx-backend-dx11 = { path = "../gfx/src/backend/dx11" }
+gfx-backend-metal = { path = "../gfx/src/backend/metal" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "=0.2.69" # remember to change version in readme as well

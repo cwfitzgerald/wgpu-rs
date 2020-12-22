@@ -2,6 +2,8 @@
 mod framework;
 
 use bytemuck::{Pod, Zeroable};
+use parking_lot::Mutex;
+use rayon::prelude::*;
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
@@ -388,37 +390,67 @@ impl framework::Example for Example {
     ) {
         let mut encoder =
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-        {
-            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: None,
-            });
-            rpass.push_debug_group("Prepare data for draw.");
-            rpass.set_pipeline(&self.pipeline);
-            rpass.set_bind_group(0, &self.bind_group, &[]);
-            rpass.set_index_buffer(self.index_buf.slice(..), self.index_format);
-            rpass.set_vertex_buffer(0, self.vertex_buf.slice(..));
-            rpass.pop_debug_group();
-            rpass.insert_debug_marker("Draw!");
-            rpass.draw_indexed(0..self.index_count as u32, 0, 0..1);
-            if let Some(ref pipe) = self.pipeline_wire {
-                rpass.set_pipeline(pipe);
-                rpass.draw_indexed(0..self.index_count as u32, 0, 0..1);
+
+        let rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: None,
+            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                attachment: &frame.view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color {
+                        r: 0.1,
+                        g: 0.2,
+                        b: 0.3,
+                        a: 1.0,
+                    }),
+                    store: true,
+                },
+            }],
+            depth_stencil_attachment: None,
+        });
+        drop(rpass);
+
+        const THREADS: u32 = 8;
+        let vec: Mutex<Vec<_>> = Mutex::new(Vec::new());
+        rayon::scope(|s| {
+            for _ in 0..THREADS {
+                s.spawn(|_| {
+                    let mut encoder = device
+                        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+                    let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                        label: None,
+                        color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                            attachment: &frame.view,
+                            resolve_target: None,
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Load,
+                                store: true,
+                            },
+                        }],
+                        depth_stencil_attachment: None,
+                    });
+                    const LOOPS: u32 = 10000;
+                    for _ in 0..(LOOPS / THREADS) {
+                        rpass.set_pipeline(&self.pipeline);
+                        rpass.set_bind_group(0, &self.bind_group, &[]);
+                        rpass.set_index_buffer(self.index_buf.slice(..), self.index_format);
+                        rpass.set_vertex_buffer(0, self.vertex_buf.slice(..));
+                        // rpass.push_debug_group("Prepare data for draw.");
+                        // rpass.pop_debug_group();
+                        // rpass.insert_debug_marker("Draw!");
+                        if let Some(ref pipe) = self.pipeline_wire {
+                            rpass.set_pipeline(pipe);
+                        }
+                    }
+                    rpass.draw_indexed(0..self.index_count as u32, 0, 0..1);
+
+                    drop(rpass);
+
+                    vec.lock().push(encoder.finish());
+                });
             }
-        }
+        });
 
         queue.submit(Some(encoder.finish()));
     }
